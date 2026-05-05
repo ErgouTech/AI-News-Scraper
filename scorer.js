@@ -1,3 +1,17 @@
+function calculateContentScore(text) {
+  const textLower = text.toLowerCase();
+
+  const modelKeywords = ['model', 'gpt', 'claude', 'gemini', 'llm', '大模型', '旗舰模型', '新模型', '新版本', '版本更新', '模型更新', 'model update', 'new model', 'model release', 'benchmark', '评测', '排行榜', 'ranking', '超越', 'surpass', 'outperform', 'SOTA', 'state-of-the-art', 'o1', 'o3', 'o4', 'gpt-5', 'claude 4', 'gemini 2'];
+  const hardwareKeywords = ['gpu', 'tpu', 'npu', '芯片', '处理器', 'cpu', '硬件', '显卡', 'server', '服务器', '数据中心', '算力', 'H100', 'H200', 'B100', 'GB200', 'MI300'];
+  const agentKeywords = ['agent', 'agentic', 'AI Agent', '智能体', '代理', 'MCP', 'computer use', 'computer control'];
+
+  const modelScore = modelKeywords.filter(kw => textLower.includes(kw)).length * 20;
+  const agentScore = agentKeywords.filter(kw => textLower.includes(kw)).length * 15;
+  const hardwarePenalty = hardwareKeywords.filter(kw => textLower.includes(kw)).length * 15;
+
+  return Math.max(0, modelScore + agentScore - hardwarePenalty);
+}
+
 export function scoreNews(news) {
   const now = Date.now();
   const publishedTime = new Date(news.publishedAt).getTime();
@@ -6,8 +20,9 @@ export function scoreNews(news) {
   const recencyScore = calculateRecencyScore(ageInHours);
   const sourceScore = calculateSourceScore(news.source);
   const companyScore = calculateCompanyScore(news.title + ' ' + news.summary);
+  const contentScore = calculateContentScore(news.title + ' ' + news.summary);
 
-  return recencyScore * 0.3 + sourceScore * 0.25 + companyScore * 0.45;
+  return recencyScore * 0.15 + sourceScore * 0.15 + companyScore * 0.40 + contentScore * 0.30;
 }
 
 function calculateRecencyScore(ageInHours) {
@@ -23,9 +38,11 @@ function calculateRecencyScore(ageInHours) {
 function calculateSourceScore(source) {
   const highAuthority = ['techcrunch', 'venturebeat', 'theverge', 'wired', '36kr', 'ithome'];
   const mediumAuthority = ['hackernews', 'hn', 'reddit', 'arxiv', 'leifeng'];
+  const socialAuthority = ['x/', 'twitter', 'x.com'];
 
   const sourceLower = source.toLowerCase();
 
+  if (socialAuthority.some(s => sourceLower.includes(s))) return 90;
   if (highAuthority.some(s => sourceLower.includes(s))) return 100;
   if (mediumAuthority.some(s => sourceLower.includes(s))) return 80;
   return 60;
@@ -34,32 +51,39 @@ function calculateSourceScore(source) {
 function calculateCompanyScore(text) {
   const textLower = text.toLowerCase();
 
-  const tier1 = ['openai', 'anthropic', 'deepmind'];
-  const tier2 = ['字节跳动', 'bytedance', '阿里巴巴', 'alibaba', '腾讯', 'tencent'];
-  const tier3 = ['月之暗面', 'moonshot', '智谱', 'zhipu', 'minimax', '小米', 'xiaomi'];
+  const tier1 = ['openai', 'anthropic', 'deepmind', 'google deepmind', 'xai'];
+  const tier2 = ['字节跳动', 'bytedance', '阿里巴巴', 'alibaba', '腾讯', 'tencent', 'kimi', '月之暗面', 'moonshot'];
+  const tier3 = ['智谱', 'zhipu', 'minimax', '小米', 'xiaomi', 'glm', 'zhipuai', 'qwen', '通义千问', '文心一言', 'ernie'];
 
-  if (tier1.some(c => textLower.includes(c))) return 100;
-  if (tier2.some(c => textLower.includes(c))) return 90;
-  if (tier3.some(c => textLower.includes(c))) return 80;
+  const tier1Match = tier1.filter(c => textLower.includes(c)).length;
+  const tier2Match = tier2.filter(c => textLower.includes(c)).length;
+  const tier3Match = tier3.filter(c => textLower.includes(c)).length;
+
+  if (tier1Match > 0) return 100;
+  if (tier2Match > 0) return 90;
+  if (tier3Match > 0) return 80;
 
   return 30;
 }
 
 export function isImportant(score) {
-  return score > 70;
+  return score > 60;
 }
 
 const MANDATORY_COMPANIES = [
-  'openai', 'anthropic', 'deepmind',
+  'openai', 'anthropic', 'deepmind', 'google deepmind', 'xai',
   '字节跳动', 'bytedance', '阿里巴巴', 'alibaba', '腾讯', 'tencent',
-  '月之暗面', 'moonshot', '智谱', 'zhipu', 'minimax', '小米', 'xiaomi'
+  '月之暗面', 'moonshot', '智谱', 'zhipu', 'minimax', '小米', 'xiaomi',
+  'kimi', 'glm', 'zhipuai', 'qwen', '通义千问', '文心一言', 'ernie'
 ];
 
 const AI_CONTEXT = [
   'ai', 'artificial intelligence', 'machine learning', 'deep learning',
   'llm', 'large language model', 'neural network', 'gpt', 'claude', 'gemini',
   '大模型', '生成式', '人工智能', '神经网络', 'AI 模型', 'AI 工具', 'Agent', 'agent',
-  'chatgpt', '语言模型', '机器学习', '深度学习'
+  'chatgpt', '语言模型', '机器学习', '深度学习',
+  'model', 'benchmark', '评测', 'o1', 'o3', 'o4', 'gpt-', 'claude ', 'gemini ',
+  'SOTA', 'ranking', '排行榜', '新模型', '旗舰模型', '版本更新'
 ];
 
 export function hasTargetCompany(text) {

@@ -13,7 +13,7 @@ const AI_KEYWORDS = [
 
 function fetchUrl(url) {
   try {
-    return execSync(`curl -s --connect-timeout 10 "${url}"`, { encoding: 'utf-8' });
+    return execSync(`curl -s --connect-timeout 10 -m 30 "${url}"`, { encoding: 'utf-8' });
   } catch (e) {
     return '';
   }
@@ -161,6 +161,48 @@ async function fetchReddit() {
   }
 }
 
+// X (Twitter) via Nitter RSS
+async function fetchXNitter(screenName, sourceName) {
+  const nitterInstances = [
+    'https://nitter.privacydev.net',
+    'https://nitter.poast.org',
+    'https://nitter.kavin.rocks'
+  ];
+  for (const instance of nitterInstances) {
+    try {
+      const xml = execSync(`curl -s --connect-timeout 3 -m 5 "${instance}/${screenName}/rss"`, { encoding: 'utf-8' });
+      if (xml && xml.includes('<item>')) {
+        return extractRSSItems(xml, sourceName);
+      }
+    } catch (e) {
+      continue;
+    }
+  }
+  return [];
+}
+
+async function fetchTwitterX() {
+  const accounts = [
+    { screenName: 'sama', sourceName: 'X/OpenAI' },
+    { screenName: 'AnthropicAI', sourceName: 'X/Anthropic' },
+    { screenName: 'GoogleAI', sourceName: 'X/GoogleAI' },
+    { screenName: 'xai', sourceName: 'X/xAI' },
+    { screenName: 'kimi_all', sourceName: 'X/Kimi' },
+    { screenName: 'MinimaxTech', sourceName: 'X/Minimax' },
+    { screenName: 'zhipuai', sourceName: 'X/GLM' }
+  ];
+
+  try {
+    const results = await Promise.all(
+      accounts.map(acc => fetchXNitter(acc.screenName, acc.sourceName))
+    );
+    return results.flat();
+  } catch (e) {
+    console.error('Twitter/X fetch error:', e.message);
+    return [];
+  }
+}
+
 // Chinese RSS feeds
 async function fetch36kr() {
   try {
@@ -222,6 +264,27 @@ async function fetchEvery() {
   }
 }
 
+// Additional Reddit AI communities
+async function fetchRedditAI() {
+  try {
+    const data = fetchUrl('https://www.reddit.com/r/LocalLLaMA/hot/.json?limit=20');
+    if (!data) return [];
+    const json = JSON.parse(data);
+    return (json.data?.children || [])
+      .map(item => ({
+        id: item.data.id,
+        title: item.data.title,
+        summary: item.data.selftext || '',
+        url: item.data.url,
+        source: 'Reddit/LocalLLaMA',
+        publishedAt: new Date(item.data.created_utc * 1000).toISOString()
+      }));
+  } catch (e) {
+    console.error('Reddit LocalLLaMA error:', e.message);
+    return [];
+  }
+}
+
 function isAIRelated(news) {
   const text = (news.title + ' ' + news.summary).toLowerCase();
   return AI_KEYWORDS.some(kw => text.includes(kw));
@@ -231,7 +294,7 @@ export async function crawlAll() {
   console.log('Crawling all sources...');
 
   const [
-    hn, tc, vb, verge, wired, ars, reddit,
+    hn, tc, vb, verge, wired, ars, twitterX,
     kr36, leifeng, ithome, every
   ] = await Promise.all([
     fetchHackerNews(),
@@ -240,14 +303,14 @@ export async function crawlAll() {
     fetchTheVerge(),
     fetchWired(),
     fetchArsTechnica(),
-    fetchReddit(),
+    fetchTwitterX(),
     fetch36kr(),
     fetchLeiFeng(),
     fetchITHomes(),
     fetchEvery()
   ]);
 
-  const allNews = [...hn, ...tc, ...vb, ...verge, ...wired, ...ars, ...reddit, ...kr36, ...leifeng, ...ithome, ...every];
+  const allNews = [...hn, ...tc, ...vb, ...verge, ...wired, ...ars, ...twitterX, ...kr36, ...leifeng, ...ithome, ...every];
   console.log(`Total fetched: ${allNews.length} items`);
 
   const aiNews = allNews.filter(isAIRelated);

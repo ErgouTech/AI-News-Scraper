@@ -9,6 +9,19 @@ const FETCH_INTERVAL = 60 * 60 * 1000; // 1 hour
 
 let newsQueue = [];
 let displayQueue = [];
+let sseClients = new Set();
+
+function notifySSEClients() {
+  const data = JSON.stringify({
+    type: 'news_update',
+    news: displayQueue,
+    count: displayQueue.length,
+    timestamp: new Date().toISOString()
+  });
+  for (const client of sseClients) {
+    client.write(`data: ${data}\n\n`);
+  }
+}
 
 async function refreshNews() {
   console.log(`[${new Date().toISOString()}] Fetching news...`);
@@ -34,6 +47,7 @@ async function refreshNews() {
     .slice(0, 10);
 
   console.log(`Display queue updated with ${displayQueue.length} items`);
+  notifySSEClients();
 }
 
 function createServer() {
@@ -44,6 +58,19 @@ function createServer() {
         'Access-Control-Allow-Origin': '*'
       });
       res.end(JSON.stringify(displayQueue));
+      return;
+    }
+
+    if (req.url === '/api/events' && req.method === 'GET') {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*'
+      });
+      res.write(`data: ${JSON.stringify({ type: 'connected', timestamp: new Date().toISOString() })}\n\n`);
+      sseClients.add(res);
+      req.on('close', () => sseClients.delete(res));
       return;
     }
 
@@ -622,7 +649,22 @@ function getIndexHTML() {
       if (e.target === modal) closeModal();
     });
 
-    fetchNews();
+    let sseConnection = null;
+
+    function connectSSE() {
+      if (sseConnection) sseConnection.close();
+      sseConnection = new EventSource('/api/events');
+      sseConnection.onmessage = (e) => {
+        console.log('SSE event:', e.data);
+        fetchNews();
+      };
+      sseConnection.onerror = () => {
+        console.log('SSE connection error, reconnecting...');
+        setTimeout(connectSSE, 5000);
+      };
+    }
+
+    connectSSE();
     setInterval(fetchNews, 30000);
   </script>
 </body>
