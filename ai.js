@@ -1,4 +1,14 @@
 import https from 'https';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const envFile = readFileSync(join(__dirname, '.env'), 'utf8');
+envFile.split('\n').forEach(line => {
+  const [key, ...vals] = line.split('=');
+  if (key && vals.length) process.env[key.trim()] = vals.join('=').trim();
+});
 
 const MINIMAX_API_URL = 'api.minimax.chat';
 const GROUP_ID = process.env.MINIMAX_GROUP_ID || 'your-group-id';
@@ -21,16 +31,30 @@ function stripHtml(str) {
 
 function callMiniMax(messages) {
   return new Promise((resolve, reject) => {
+    const miniMaxMessages = messages.map(msg => ({
+      ...msg,
+      sender_name: msg.role === 'user' ? 'user' : 'assistant',
+      sender_type: msg.role === 'user' ? 'USER' : 'BOT'
+    }));
     const body = JSON.stringify({
-      model: 'MiniMax-Text-01',
-      messages,
+      model: 'MiniMax-M2.7',
+      messages: miniMaxMessages,
       temperature: 0.3,
-      max_tokens: 800
+      max_tokens: 800,
+      bot_setting: [{
+        bot_name: 'assistant',
+        content: 'You are a helpful assistant.'
+      }],
+      reply_constraints: {
+        return_format: 1,
+        sender_type: 'BOT',
+        sender_name: 'assistant'
+      }
     });
 
     const options = {
       hostname: MINIMAX_API_URL,
-      path: `/v1/text/chatcompletion_pro?GroupId=${GROUP_ID}`,
+      path: `/v1/chat/completions?GroupId=${GROUP_ID}`,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -47,9 +71,11 @@ function callMiniMax(messages) {
           if (parsed.choices && parsed.choices[0]) {
             resolve(parsed.choices[0].message.content);
           } else {
+            console.error('MiniMax API response:', JSON.stringify(parsed).substring(0, 500));
             reject(new Error('Invalid response format'));
           }
         } catch (e) {
+          console.error('MiniMax response parse error, raw:', data.substring(0, 500));
           reject(e);
         }
       });
@@ -80,7 +106,9 @@ Content: ${newsItem.summary || 'No additional content'}`;
       { role: 'user', content: userPrompt }
     ]);
 
-    const parsed = JSON.parse(result);
+    let cleaned = result.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+    cleaned = cleaned.replace(/^```json\s*/i, '').replace(/\s*```$/i, '');
+    const parsed = JSON.parse(cleaned);
 
     return {
       ...newsItem,

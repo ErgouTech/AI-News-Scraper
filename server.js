@@ -509,7 +509,6 @@ function getIndexHTML() {
   </div>
 
   <script>
-    alert('Script loaded!');
     const newsList = document.getElementById('news-list');
     const updateTime = document.getElementById('update-time');
     const modal = document.getElementById('modal');
