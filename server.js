@@ -1,7 +1,7 @@
 import http from 'http';
 import { execSync } from 'child_process';
 import { crawlAll } from './crawler.js';
-import { scoreNews, isImportant, hasTargetCompany } from './scorer.js';
+import { scoreNews, isImportant, hasTargetCompany, isRelevantContent } from './scorer.js';
 import { processNewsBatch } from './ai.js';
 
 const PORT = 3000;
@@ -28,17 +28,23 @@ async function refreshNews() {
 
   const rawNews = await crawlAll();
 
-  // Mandatory company filter: must contain target company
+  // Step 1: Company filter - only target companies
   const companyFiltered = rawNews.filter(news =>
     hasTargetCompany(news.title + ' ' + news.summary)
   );
   console.log(`After company filter: ${companyFiltered.length} items`);
 
-  const scoredNews = companyFiltered
+  // Step 2: Content filter - only LLM/Agent/model updates,评测, etc.
+  const contentFiltered = companyFiltered.filter(news =>
+    isRelevantContent(news.title + ' ' + news.summary)
+  );
+  console.log(`After content filter: ${contentFiltered.length} items`);
+
+  const scoredNews = contentFiltered
     .map(news => ({ ...news, score: scoreNews(news) }))
     .filter(news => isImportant(news.score));
 
-  console.log(`Found ${scoredNews.length} important news (score > 70)`);
+  console.log(`Found ${scoredNews.length} important news (score > 60)`);
 
   const processedNews = await processNewsBatch(scoredNews);
 

@@ -70,25 +70,30 @@ export function isImportant(score) {
   return score > 60;
 }
 
-const MANDATORY_COMPANIES = [
+const TARGET_COMPANIES = [
   'openai', 'anthropic', 'deepmind', 'google deepmind', 'xai',
-  '字节跳动', 'bytedance', '阿里巴巴', 'alibaba', '腾讯', 'tencent',
-  '月之暗面', 'moonshot', '智谱', 'zhipu', 'minimax', '小米', 'xiaomi',
-  'kimi', 'glm', 'zhipuai', 'qwen', '通义千问', '文心一言', 'ernie'
+  '字节跳动', 'bytedance', 'moonshot', '月之暗面', 'kimi',
+  '阿里巴巴', 'alibaba', '阿里巴巴', '腾讯', 'tencent',
+  '智谱', 'zhipu', 'zhipuai', 'glm', 'minimax', '小米', 'xiaomi',
+  'qwen', '通义千问', 'ernie', '文心一言'
 ];
 
-const AI_CONTEXT = [
-  'ai', 'artificial intelligence', 'machine learning', 'deep learning',
-  'llm', 'large language model', 'neural network', 'gpt', 'claude', 'gemini',
-  '大模型', '生成式', '人工智能', '神经网络', 'AI 模型', 'AI 工具', 'Agent', 'agent',
-  'chatgpt', '语言模型', '机器学习', '深度学习',
-  'model', 'benchmark', '评测', 'o1', 'o3', 'o4', 'gpt-', 'claude ', 'gemini ',
-  'SOTA', 'ranking', '排行榜', '新模型', '旗舰模型', '版本更新'
+const CONTENT_KEYWORDS = [
+  'llm', 'large language model', '大模型', '语言模型',
+  'model', 'gpt', 'claude', 'gemini', '新模型', '旗舰模型', '版本更新', 'model update', 'new model', 'model release',
+  'agent', 'agentic', 'AI Agent', '智能体', '工具',
+  'benchmark', '评测', 'ranking', '排行榜', '超越', 'surpass', 'outperform', 'SOTA', 'state-of-the-art',
+  'o1', 'o3', 'o4', 'o5', 'gpt-5', 'claude 4', 'gemini 2',
+  '发布', 'launch', 'release', 'announce',
+  'computer use', 'MCP', '适配', '兼容', 'compatible', 'integration'
 ];
 
 export function hasTargetCompany(text) {
   const textLower = text.toLowerCase();
-  const hasCompany = MANDATORY_COMPANIES.some(c => textLower.includes(c));
-  const hasAI = AI_CONTEXT.some(c => textLower.includes(c));
-  return hasCompany && hasAI;
+  return TARGET_COMPANIES.some(c => textLower.includes(c));
+}
+
+export function isRelevantContent(text) {
+  const textLower = text.toLowerCase();
+  return CONTENT_KEYWORDS.some(kw => textLower.includes(kw));
 }
