@@ -1,0 +1,14 @@
+# macos 相关
+.DS_Store
+.localized
+__MACOSX/
+.AppleDouble
+.LSOverride
+
+# Resource forks
+._*
+
+#claude code
+.claude/
+CLAUDE.md
+.env
