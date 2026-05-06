@@ -3,12 +3,12 @@ import { execSync } from 'child_process';
 const HACKER_NEWS_API = 'https://hacker-news.firebaseio.com/v0';
 
 const AI_KEYWORDS = [
-  'ai', 'artificial intelligence', 'machine learning', 'deep learning',
-  'openai', 'anthropic', 'google deepmind', 'chatgpt', 'claude', 'gemini',
-  'llm', 'large language model', 'neural network', 'gpt',
-  '字节跳动', 'bytedance', '阿里巴巴', 'alibaba', '腾讯', 'tencent',
-  '月之暗面', 'moonshot', '智谱', 'zhipu', 'minimax', '小米', 'xiaomi',
-  '人工智能', '大模型', '生成式 AI', 'AI 模型', '神经网络'
+  'ai', 'artificial intelligence',
+  'openai', 'anthropic', 'google deepmind', 'chatgpt', 'SOTA model','claude code','claude', 'nano banana','gemini',
+  'openclaw','harness','llm', 'large language model', 'neural network', 'gpt', 'gpt-5.5','opus','opus-4.6','opus-4.7','gpt-','opus-',
+  '字节跳动', 'bytedance', '阿里巴巴', 'alibaba', '腾讯', 'tencent','claude opus','claue sonnet',
+  '月之暗面', 'moonshot', 'kimi','glm','智谱', 'zhipu', 'minimax', '小米', 'xiaomi','mimo',
+  '人工智能', '大模型', '生成式 AI', 'AI 模型'
 ];
 
 function fetchUrl(url) {
@@ -264,6 +264,16 @@ async function fetchEvery() {
   }
 }
 
+async function fetchTestingCatalog() {
+  try {
+    const xml = fetchUrl('https://www.testingcatalog.com/rss/');
+    return extractRSSItems(xml, 'TestingCatalog');
+  } catch (e) {
+    console.error('TestingCatalog error:', e.message);
+    return [];
+  }
+}
+
 // Additional Reddit AI communities
 async function fetchRedditAI() {
   try {
@@ -295,7 +305,7 @@ export async function crawlAll() {
 
   const [
     hn, tc, vb, verge, wired, ars, twitterX,
-    kr36, leifeng, ithome, every
+    kr36, leifeng, ithome, every, testingcatalog
   ] = await Promise.all([
     fetchHackerNews(),
     fetchTechCrunch(),
@@ -307,10 +317,11 @@ export async function crawlAll() {
     fetch36kr(),
     fetchLeiFeng(),
     fetchITHomes(),
-    fetchEvery()
+    fetchEvery(),
+    fetchTestingCatalog()
   ]);
 
-  const allNews = [...hn, ...tc, ...vb, ...verge, ...wired, ...ars, ...twitterX, ...kr36, ...leifeng, ...ithome, ...every];
+  const allNews = [...hn, ...tc, ...vb, ...verge, ...wired, ...ars, ...twitterX, ...kr36, ...leifeng, ...ithome, ...every, ...testingcatalog];
   console.log(`Total fetched: ${allNews.length} items`);
 
   const aiNews = allNews.filter(isAIRelated);

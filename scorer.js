@@ -81,7 +81,7 @@ const TARGET_COMPANIES = [
 const CONTENT_KEYWORDS = [
   'llm', 'large language model', '大模型', '语言模型',
   'model', 'gpt', 'claude', 'gemini', '新模型', '旗舰模型', '版本更新', 'model update', 'new model', 'model release',
-  'agent', 'agentic', 'AI Agent', '智能体', '工具',
+  'agent', 'agentic', 'AI Agent', '智能体', '工具', 'assistant',
   'benchmark', '评测', 'ranking', '排行榜', '超越', 'surpass', 'outperform', 'SOTA', 'state-of-the-art',
   'o1', 'o3', 'o4', 'o5', 'gpt-5', 'claude 4', 'gemini 2',
   '发布', 'launch', 'release', 'announce',
