@@ -237,6 +237,22 @@ function getIndexHTML() {
     .timeline-item {
       display: flex;
       align-items: flex-start;
+      position: relative;
+    }
+
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: 30px;
+      top: 36px;
+      bottom: -24px;
+      width: 2px;
+      background: linear-gradient(180deg, rgba(0,255,136,0.3), rgba(0,170,255,0.1));
+      z-index: 1;
+    }
+
+    .timeline-item:last-child::before {
+      display: none;
     }
 
     .timeline-indicator {
@@ -246,17 +262,7 @@ function getIndexHTML() {
       width: 60px;
       flex-shrink: 0;
       position: relative;
-    }
-
-    .timeline-indicator::before {
-      content: '';
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      top: 0;
-      bottom: 0;
-      width: 2px;
-      background: linear-gradient(180deg, rgba(0,255,136,0.3), rgba(0,170,255,0.1));
+      z-index: 2;
     }
 
     .timeline-time {
@@ -275,8 +281,6 @@ function getIndexHTML() {
       border-radius: 50%;
       background: #00ff88;
       box-shadow: 0 0 10px rgba(0, 255, 136, 0.6), 0 0 2px rgba(0, 255, 136, 0.8);
-      position: relative;
-      z-index: 2;
       flex-shrink: 0;
     }
 
