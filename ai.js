@@ -40,7 +40,7 @@ function callMiniMax(messages) {
       model: 'MiniMax-M2.7',
       messages: miniMaxMessages,
       temperature: 0.3,
-      max_tokens: 800,
+      max_tokens: 1500,
       bot_setting: [{
         bot_name: 'assistant',
         content: 'You are a helpful assistant.'
@@ -90,12 +90,11 @@ function callMiniMax(messages) {
 export async function summarizeNews(newsItem) {
   const isEnglish = /^[a-zA-Z]/.test(newsItem.title);
 
-  const systemPrompt = `You are a news editor. Summarize the news concisely.
-1. If it's English news, provide Chinese summary (keep English original too)
-2. Keep the original title as-is (do not modify)
-3. Summaries should be concise but can vary in length
-4. Return in JSON format:
-{"summary_zh": "中文摘要", "summary_en": "English summary if applicable"}`;
+  const systemPrompt = `You are a news editor. Return ONLY valid JSON, no other text.
+1. Keep the original title AS-IS, do NOT translate or modify it
+2. If the news content is in English, translate it to Chinese and also keep the English original
+3. Return ONLY this JSON structure:
+{"summary_zh": "中文摘要", "summary_en": "English original summary if applicable"}`;
 
   const userPrompt = `Title: ${newsItem.title}
 Content: ${newsItem.summary || 'No additional content'}`;
@@ -130,6 +129,46 @@ Content: ${newsItem.summary || 'No additional content'}`;
       summaryEn: isEnglish ? stripHtml(newsItem.summary) : null,
       isEnglish
     };
+  }
+}
+
+export async function cleanArticleContent(rawContent, isEnglish) {
+  const systemPrompt = `You are a content editor. Return ONLY valid JSON, no other text.
+1. Remove ALL content irrelevant to the main article: advertisements, "click for more", "share to", navigation links, promotional text, cookie notices, social media handles, etc.
+2. If the cleaned content is in English, translate it to Chinese AND keep the original English
+3. Return ONLY this JSON structure:
+{"content_zh": "清理后的中文正文", "content_en": "Cleaned English original if applicable"}`;
+
+  const userPrompt = `Content to clean:\n${rawContent.substring(0, 4000)}`;
+
+  try {
+    const result = await callMiniMax([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ]);
+
+    let cleaned = result.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+    cleaned = cleaned.replace(/^```json\s*/i, '').replace(/\s*```$/i, '');
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    }
+
+    if (!parsed) {
+      return { content_zh: stripHtml(rawContent), content_en: isEnglish ? stripHtml(rawContent) : null };
+    }
+
+    return {
+      content_zh: stripHtml(parsed.content_zh) || stripHtml(rawContent),
+      content_en: parsed.content_en ? stripHtml(parsed.content_en) : (isEnglish ? stripHtml(rawContent) : null)
+    };
+  } catch (e) {
+    console.error('AI article cleaning failed:', e);
+    const stripped = stripHtml(rawContent) || '';
+    return { content_zh: stripped, content_en: isEnglish ? stripped : null };
   }
 }
 

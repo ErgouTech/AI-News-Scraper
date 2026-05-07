@@ -2,7 +2,7 @@ import http from 'http';
 import { execSync } from 'child_process';
 import { crawlAll } from './crawler.js';
 import { scoreNews, isImportant, hasTargetCompany, isRelevantContent } from './scorer.js';
-import { processNewsBatch } from './ai.js';
+import { processNewsBatch, cleanArticleContent } from './ai.js';
 
 const PORT = 3000;
 const FETCH_INTERVAL = 60 * 60 * 1000; // 1 hour
@@ -639,14 +639,21 @@ function getIndexHTML() {
         const res = await fetch('/api/article?url=' + encodeURIComponent(newsItem.url));
         const data = await res.json();
         if (data.content && data.content.length > 50) {
-          modalBody.textContent = data.content;
+          const cleaned = await cleanArticleContent(data.content, newsItem.isEnglish);
+          let bodyContent = '';
+          if (cleaned.content_en) {
+            bodyContent = '<div class="article-summary-zh">' + (cleaned.content_zh || '') + '</div><div class="article-summary-en">' + cleaned.content_en + '</div>';
+          } else {
+            bodyContent = '<div class="article-summary-zh">' + (cleaned.content_zh || data.content) + '</div>';
+          }
+          modalBody.innerHTML = bodyContent;
         } else {
           // Fallback to summary if article fetch failed or returned empty
-          modalBody.textContent = '【摘要】\\n\\n' + (newsItem.summaryZh || newsItem.summary || '暂无内容');
+          modalBody.innerHTML = '<div class="article-summary-zh">' + (newsItem.summaryZh || newsItem.summary || '暂无内容') + '</div>';
         }
       } catch (e) {
         // Fallback to summary on error
-        modalBody.textContent = '【摘要】\\n\\n' + (newsItem.summaryZh || newsItem.summary || '加载原文失败');
+        modalBody.innerHTML = '<div class="article-summary-zh">' + (newsItem.summaryZh || newsItem.summary || '加载原文失败') + '</div>';
       }
     }
 
