@@ -88,7 +88,11 @@ function callMiniMax(messages) {
 }
 
 export async function summarizeNews(newsItem) {
-  const isEnglish = /^[a-zA-Z]/.test(newsItem.title);
+  // Detect English by checking if most of title+summary is ASCII (not just first char)
+  const combinedText = (newsItem.title + ' ' + (newsItem.summary || '')).substring(0, 200);
+  const asciiCount = (combinedText.match(/[a-zA-Z]/g) || []).length;
+  const nonAsciiCount = (combinedText.match(/[^\x00-\x7F]/g) || []).length;
+  const isEnglish = asciiCount > 10 && asciiCount > nonAsciiCount;
 
   const systemPrompt = `You are a news editor. Return ONLY valid JSON, no other text.
 1. Keep the original title AS-IS, do NOT translate or modify it

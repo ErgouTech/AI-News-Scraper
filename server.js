@@ -89,9 +89,9 @@ function createServer() {
       }
       try {
         const html = execSync(`curl -s --connect-timeout 10 -L "${url}"`, { encoding: 'utf-8' });
-        const text = extractText(html);
+        // Pass raw HTML - cleanArticleContent will handle extraction and cleaning
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ content: text }));
+        res.end(JSON.stringify({ content: html }));
       } catch (e) {
         res.writeHead(500);
         res.end(JSON.stringify({ error: 'Failed to fetch article' }));
@@ -110,84 +110,6 @@ function createServer() {
   });
 }
 
-function extractMainContent(html) {
-  // Try article tag first
-  let articleMatch = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
-  if (articleMatch && articleMatch[1].length > 100) return articleMatch[1];
-
-  // Try main tag
-  let mainMatch = html.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
-  if (mainMatch && mainMatch[1].length > 100) return mainMatch[1];
-
-  // Try to find the div with most paragraph text (Readability-style)
-  let bestContent = '';
-  let bestScore = 0;
-
-  const divMatches = html.matchAll(/<div[^>]*(?:class|id)=["']([^"']*)["'][^>]*>([\s\S]*?)<\/div>/gi);
-  for (const match of divMatches) {
-    const classId = (match[1] || '').toLowerCase();
-    const content = match[2];
-
-    // Skip nav, footer, header, sidebar, menu, comment, related,推荐,侧边栏
-    const skipPatterns = ['nav', 'footer', 'header', 'sidebar', 'menu', 'comment', 'related', 'recommend', 'popular', 'social', 'share', 'ad-', '广告', '侧边栏', '导航', '评论', '相关'];
-    if (skipPatterns.some(p => classId.includes(p))) continue;
-
-    // Score based on paragraph count and length
-    const paragraphs = (content.match(/<p[^>]*>/gi) || []).length;
-    const textLength = content.replace(/<[^>]*>/g, '').length;
-    const score = paragraphs * 100 + Math.min(textLength, 5000);
-
-    if (score > bestScore && textLength > 200) {
-      bestScore = score;
-      bestContent = content;
-    }
-  }
-
-  return bestContent || html;
-}
-
-function extractText(html) {
-  const content = extractMainContent(html);
-
-  // Aggressive cleanup of non-content elements
-  let text = content
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<noscript[^>]*>[\s\S]*?<\/noscript>/gi, '')
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
-    .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
-    .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
-    .replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, '')
-    .replace(/<form[^>]*>[\s\S]*?<\/form>/gi, '')
-    .replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, '')
-    .replace(/<button[^>]*>[\s\S]*?<\/button>/gi, '')
-    .replace(/<input[^>]*>/gi, '')
-    .replace(/<select[^>]*>[\s\S]*?<\/select>/gi, '')
-    .replace(/<ul[^>]*>[\s\S]*?<\/ul>/gi, '\n')
-    .replace(/<ol[^>]*>[\s\S]*?<\/ol>/gi, '\n')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n\n')
-    .replace(/<\/div>/gi, '\n')
-    .replace(/<\/h[1-6]>/gi, '\n\n')
-    .replace(/<li>/gi, '\n• ')
-    .replace(/<img[^>]*alt=["']([^"']*)["'][^>]*>/gi, '$1')
-    .replace(/<img[^>]*>/gi, '')
-    .replace(/<a[^>]*href=["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi, '$2 ($1)')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#\d+;/g, '')
-    .replace(/\n\s*\n+/g, '\n\n')
-    .replace(/[ \t]+/g, ' ')
-    .trim();
-
-  // Truncate to reasonable length but allow more than 5000
-  return text.slice(0, 10000);
-}
 
 function getIndexHTML() {
   return `<!DOCTYPE html>
@@ -308,7 +230,59 @@ function getIndexHTML() {
     #news-list {
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 24px;
+    }
+
+    /* Timeline styles - Flexbox layout */
+    .timeline-item {
+      display: flex;
+      align-items: flex-start;
+    }
+
+    .timeline-indicator {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 60px;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .timeline-indicator::before {
+      content: '';
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: linear-gradient(180deg, rgba(0,255,136,0.3), rgba(0,170,255,0.1));
+    }
+
+    .timeline-time {
+      font-size: 0.7rem;
+      color: #00ff88;
+      font-weight: 500;
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      opacity: 0.8;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .timeline-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #00ff88;
+      box-shadow: 0 0 10px rgba(0, 255, 136, 0.6), 0 0 2px rgba(0, 255, 136, 0.8);
+      position: relative;
+      z-index: 2;
+      flex-shrink: 0;
+    }
+
+    .timeline-content {
+      flex: 1;
+      min-width: 0;
     }
 
     .news-card {
@@ -317,22 +291,10 @@ function getIndexHTML() {
       border: 1px solid rgba(0, 255, 136, 0.2);
       border-radius: 12px;
       padding: 24px;
-      position: relative;
-      overflow: hidden;
       transition: all 0.3s ease;
       text-decoration: none;
       color: inherit;
-    }
-
-    .news-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 3px;
       height: 100%;
-      background: linear-gradient(180deg, #00ff88, #00aaff);
-      pointer-events: none;
     }
 
     .news-card:hover {
@@ -565,6 +527,11 @@ function getIndexHTML() {
       return str.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').trim();
     }
 
+    function formatTimelineTime(isoString) {
+      const date = new Date(isoString);
+      return date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0');
+    }
+
     function renderNews(news) {
       var titleHtml;
       if (news.titleEn) {
@@ -582,9 +549,24 @@ function getIndexHTML() {
 
       var cardUrl = news.url || '';
       var score = Math.round(news.score) || 0;
-      var timeAgo = formatTime(news.publishedAt);
+      var timeDisplay = formatTimelineTime(news.publishedAt);
 
-      return '<div class="news-card" data-url="' + cardUrl + '"><div class="news-source">' + news.source + '</div>' + titleHtml + summaryHtml + '<div class="news-meta"><span class="news-time">' + timeAgo + '</span><span class="news-score">重要性 ' + score + '分</span></div></div>';
+      return '<div class="timeline-item">' +
+        '<div class="timeline-indicator">' +
+          '<div class="timeline-time">' + timeDisplay + '</div>' +
+          '<div class="timeline-dot"></div>' +
+        '</div>' +
+        '<div class="timeline-content">' +
+          '<div class="news-card" data-url="' + cardUrl + '">' +
+            '<div class="news-source">' + news.source + '</div>' +
+            titleHtml +
+            summaryHtml +
+            '<div class="news-meta">' +
+              '<span class="news-score">重要性 ' + score + '分</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
     }
 
     function renderEmpty() {
@@ -603,7 +585,7 @@ function getIndexHTML() {
           newsList.innerHTML = renderEmpty();
         } else {
           newsList.innerHTML = news.map(renderNews).join('');
-          document.querySelectorAll('.news-card').forEach((card, idx) => {
+          document.querySelectorAll('.timeline-content .news-card').forEach((card, idx) => {
             card.addEventListener('click', () => {
               const newsItem = news[idx];
               openModal(newsItem);
@@ -685,14 +667,14 @@ function getIndexHTML() {
 }
 
 async function main() {
-  await refreshNews();
-
-  setInterval(refreshNews, FETCH_INTERVAL);
-
   const server = createServer();
   server.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
   });
+
+  // Fetch news in background, don't block server startup
+  refreshNews();
+  setInterval(refreshNews, FETCH_INTERVAL);
 }
 
 main().catch(console.error);
